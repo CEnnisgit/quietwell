@@ -1,0 +1,114 @@
+name: sim-proof
+
+# Builds the app for the iOS Simulator (no signing), runs the unit tests, drives every DEBUG
+# screenshot hook and uploads the evidence. Private repos use free macOS minutes (10x multiplier),
+# so it runs only on pushes to feat/** branches or by hand.
+
+on:
+  push:
+    branches: ['feat/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sim-proof-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sim-proof:
+    name: Build, test and screenshot in the Simulator
+    runs-on: macos-26
+    timeout-minutes: 40
+    env:
+      APP: Quietwell
+      BUNDLE_ID: com.nimbuswebdesign.quietwell
+      # hook[:pro] in capture order; ":pro" launches with -AppPro YES
+      HOOKS: "home mix:pro timer onboarding paywall settings"
+      DERIVED: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          mkdir -p proof
+          xcodebuild -version
+          brew install xcodegen 2>&1 | tail -n 3
+          xcodegen --version
+
+      - name: Generate project
+        run: xcodegen generate 2>&1 | tee proof/xcodegen.log
+
+      - name: Pick simulator
+        id: sim
+        run: |
+          UDID=$(scripts/sim/pick-device.sh proof/device.txt)
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          cat proof/device.txt
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Build (Simulator, no signing)
+        run: |
+          set -o pipefail
+          xcodebuild build -project "$APP.xcodeproj" -scheme "$APP" -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee proof/build.log | grep -E 'error:|warning:|\*\* BUILD' || true
+          grep -q '\*\* BUILD SUCCEEDED \*\*' proof/build.log
+          test -d "$DERIVED/Build/Products/Debug-iphonesimulator/$APP.app"
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test -project "$APP.xcodeproj" -scheme "$APP" -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath "$DERIVED" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            2>&1 | tee proof/test.log | grep -E 'error:|Test Case .*(passed|failed)|Executed|\*\* TEST' || true
+          grep -q '\*\* TEST SUCCEEDED \*\*' proof/test.log
+          grep -E 'Executed [0-9]+ tests?, with 0 failures' proof/test.log | tail -n 1 | tee proof/test-count.txt
+
+      - name: Capture screenshot hooks
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          xcrun simctl install "$UDID" "$DERIVED/Build/Products/Debug-iphonesimulator/$APP.app"
+          xcrun simctl ui "$UDID" appearance light
+          xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+          scripts/sim/capture.sh "$UDID" "$BUNDLE_ID" proof/screens $HOOKS
+
+      - name: Verify screenshot sizes (1320x2868)
+        run: |
+          fail=0; count=0
+          for f in proof/screens/*.png; do
+            count=$((count + 1))
+            w=$(sips -g pixelWidth "$f" | awk '/pixelWidth/ {print $2}')
+            h=$(sips -g pixelHeight "$f" | awk '/pixelHeight/ {print $2}')
+            echo "$(basename "$f") ${w}x${h}" | tee -a proof/sizes.txt
+            if [ "$w" != "1320" ] || [ "$h" != "2868" ]; then fail=1; fi
+          done
+          expected=$(echo $HOOKS | wc -w | tr -d ' ')
+          echo "count: $count (expected $expected)" | tee -a proof/sizes.txt
+          test "$count" -eq "$expected"
+          test "$fail" -eq 0
+
+      - name: Diagnostics (on failure)
+        if: failure()
+        run: |
+          UDID="${{ steps.sim.outputs.udid }}"
+          mkdir -p proof/diag
+          [ -n "$UDID" ] || exit 0
+          xcrun simctl io "$UDID" screenshot --type=png proof/diag/last-screen.png || true
+          xcrun simctl spawn "$UDID" log show --last 10m --predicate "process == \"$APP\"" > proof/diag/sim-log.txt 2>&1 || true
+
+      - name: Upload proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-proof
+          path: proof/
+          if-no-files-found: error
+          retention-days: 30
