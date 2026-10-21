@@ -23,8 +23,8 @@ enum AppConfig {
     ]
 
     enum Links {
-        static let privacy = URL(string: "https://nimbuswebdesign.com/apps/quietwell/privacy/")!
-        static let support = URL(string: "https://nimbuswebdesign.com/apps/quietwell/support/")!
+        static let privacy = URL(string: "https://cennisgit.github.io/app-pages/apps/quietwell/privacy/")!
+        static let support = URL(string: "https://cennisgit.github.io/app-pages/apps/quietwell/support/")!
         /// Apple's standard EULA, used as the Terms of Use for subscriptions.
         static let terms = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!
     }

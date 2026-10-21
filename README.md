@@ -71,5 +71,5 @@ tests. Template tests cover product IDs, entitlement logic and the on-device cou
 
 ## Review notes
 
-See `/workspace/apps/sleep/review-notes.txt`. Privacy label: Data Not Collected. No health or
+See `/workspace/apps/sleep/review-notes.txt`. Privacy: https://cennisgit.github.io/app-pages/apps/quietwell/privacy/ · Support: https://cennisgit.github.io/app-pages/apps/quietwell/support/. Privacy label: Data Not Collected. No health or
 medical claims.
