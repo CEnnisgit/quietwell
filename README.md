@@ -34,8 +34,7 @@ engine, the timer, Now Playing and remote commands.
 
 - **Free, no time limit:** white, pink and brown noise, fan and rain (one at a time), tone and
   intensity controls, sleep timer with fade-out, Lock Screen controls.
-- **Quietwell Pro:** mix up to four sounds, ocean / thunder / green noise / low hum, saved mixes,
-  wake-up fade.
+- **Quietwell Pro:** mix up to four sounds, ocean / thunder / green noise / low hum, saved mixes.
 - **Prices (US):** Monthly $2.99, Yearly $12.99 (default, no trial), Lifetime $19.99 one-time.
   No weekly plan. Products: `com.nimbuswebdesign.quietwell.pro.monthly`, `.pro.yearly`
   (auto-renewing, one group) and `.pro.lifetime` (non-consumable).
@@ -43,12 +42,15 @@ engine, the timer, Now Playing and remote commands.
 ## Playback
 
 - Sleep timer: 15 min to 8 hours or all night; the last quarter (max 5 min) fades out on an
-  equal-power curve, then playback pauses.
-- Wake-up fade (Pro): after the timer, the engine keeps running silently and fades the sound back
-  in over 10 minutes at the chosen time.
+  equal-power curve, then the audio engine stops and the audio session is deactivated. Nothing
+  keeps running in the background after the timer ends.
 - `UIBackgroundModes: audio` + `AVAudioSession` `.playback` keeps the sound going with the screen
   off; `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` give Lock Screen / Control Center
   play, pause and toggle.
+
+## Icon
+
+`AppIcon-1024.png` comes from `apps/sleep/design/icon-1024.png` (1024x1024 RGB, no alpha).
 
 ## Build
 
@@ -60,7 +62,7 @@ brew install xcodegen && xcodegen generate && open Quietwell.xcodeproj
 
 `QuietwellTests/SynthTests.swift` measures spectral slope with a Hann-windowed Goertzel filter
 (white ≈ 0, pink ≈ -1, brown ≈ -2 on log-power vs log-frequency), checks tone shaping, bounds,
-determinism, the free-tier split and the voice mixer; plus sleep-timer, wake-fade and saved-mix
+determinism, the free-tier split and the voice mixer; plus sleep-timer and saved-mix
 tests. Template tests cover product IDs, entitlement logic and the on-device counter.
 
 ## Screenshot hooks / CI

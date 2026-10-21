@@ -37,7 +37,6 @@ enum AppConfig {
         Benefit(icon: "square.3.layers.3d", title: "Mix up to four sounds", detail: "For example brown noise under light rain."),
         Benefit(icon: "water.waves", title: "More generated sounds", detail: "Ocean, thunder, green noise and a low hum."),
         Benefit(icon: "bookmark", title: "Saved mixes", detail: "Start your favorite mix with one tap."),
-        Benefit(icon: "sunrise", title: "Wake-up fade", detail: "Slowly brings the sound back in the morning."),
     ]
 
     static let onboardingPages: [OnboardingPage] = [

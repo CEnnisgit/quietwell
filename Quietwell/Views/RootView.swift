@@ -39,7 +39,7 @@ struct RootView: View {
                 .onAppear { analytics.log("paywall_view") }
         }
         .sheet(isPresented: $showTimer) {
-            TimerSheet(showPaywall: $showPaywall)
+            TimerSheet()
                 .presentationDetents([.medium, .large])
         }
         .onChange(of: store.isPro) { _, isPro in if !isPro { sound.enforceFreeTier() } }

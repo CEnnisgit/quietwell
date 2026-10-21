@@ -43,32 +43,3 @@ struct SleepTimer: Sendable, Equatable {
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
     }
 }
-
-/// Pro: brings the sound back in slowly at a chosen wake time.
-struct WakeFade: Sendable, Equatable {
-    static let defaultDuration: TimeInterval = 10 * 60
-
-    let at: Date
-    let duration: TimeInterval
-
-    init(at: Date, duration: TimeInterval = Self.defaultDuration) {
-        self.at = at
-        self.duration = max(1, duration)
-    }
-
-    /// The next time `hour:minute` occurs strictly after `now`.
-    static func nextOccurrence(hour: Int, minute: Int, after now: Date, calendar: Calendar = .current) -> Date {
-        var c = DateComponents()
-        c.hour = hour; c.minute = minute; c.second = 0
-        return calendar.nextDate(after: now, matching: c, matchingPolicy: .nextTime) ?? now.addingTimeInterval(86_400)
-    }
-
-    /// 0 before the wake time, then a sine ramp up to 1 over `duration`.
-    func gain(at now: Date) -> Float {
-        if now <= at { return 0 }
-        let progress = min(1, now.timeIntervalSince(at) / duration)
-        return Float(sin(progress * .pi / 2))
-    }
-
-    func isComplete(at now: Date) -> Bool { now >= at.addingTimeInterval(duration) }
-}

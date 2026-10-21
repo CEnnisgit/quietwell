@@ -11,7 +11,7 @@ struct MixLayer: Codable, Sendable, Identifiable, Equatable, Hashable {
 }
 
 /// Owns the AVAudioEngine graph (one AVAudioSourceNode fed by `VoiceBank`), the sleep timer,
-/// the wake-up fade, background playback and the Lock Screen / Control Center controls.
+/// background playback and the Lock Screen / Control Center controls.
 @MainActor
 @Observable
 final class SoundEngine {
@@ -19,7 +19,6 @@ final class SoundEngine {
     private(set) var isPlaying = false
     private(set) var timer: SleepTimer?
     private(set) var timerRemaining: TimeInterval = 0
-    private(set) var wakeFade: WakeFade?
     /// Set when the audio hardware refused to start (shown inline; playback state is kept).
     private(set) var engineError: String?
 
@@ -118,13 +117,27 @@ final class SoundEngine {
     func pause() {
         isPlaying = false
         bank?.setMasterGain(0)
-        wakeFade = nil
         tickTask?.cancel(); tickTask = nil
         // Let the 50 ms glide finish before stopping the engine.
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
             guard let self, !self.isPlaying else { return }
             self.engine.pause()
+        }
+        updateNowPlaying()
+    }
+
+    /// Timer end: fully stops the engine and deactivates the audio session, so nothing keeps
+    /// running in the background after the fade-out.
+    func stop() {
+        isPlaying = false
+        bank?.setMasterGain(0)
+        tickTask?.cancel(); tickTask = nil
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self, !self.isPlaying else { return }
+            self.engine.stop()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
         updateNowPlaying()
     }
@@ -137,18 +150,10 @@ final class SoundEngine {
         if !isPlaying { play() } else { applyGain(); startTicking() }
     }
 
-    func scheduleWake(hour: Int, minute: Int, enabled: Bool) {
-        wakeFade = nil
-        pendingWake = enabled ? (hour: hour, minute: minute) : nil
-    }
-
-    @ObservationIgnored private var pendingWake: (hour: Int, minute: Int)?
-
     private func applyGain() {
         let now = Date()
         var g: Float = 1
         if let timer { g = timer.gain(at: now) }
-        if let wakeFade { g = max(g, wakeFade.gain(at: now)) }
         bank?.setMasterGain(isPlaying ? g : 0)
     }
 
@@ -168,17 +173,12 @@ final class SoundEngine {
         if let t = timer {
             timerRemaining = t.remaining(at: now)
             if t.isFinished(at: now) {
+                // The fade has reached silence: stop the engine and release the audio session.
                 timer = nil
-                if let wake = pendingWake {
-                    // Keep the engine running silently, then fade the sound back in at wake time.
-                    wakeFade = WakeFade(at: WakeFade.nextOccurrence(hour: wake.hour, minute: wake.minute, after: now))
-                } else {
-                    pause()
-                    return
-                }
+                stop()
+                return
             }
         }
-        if let w = wakeFade, w.isComplete(at: now) { wakeFade = nil }
         applyGain()
     }
 

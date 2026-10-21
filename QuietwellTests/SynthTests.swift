@@ -150,24 +150,6 @@ final class SleepTimerTests: XCTestCase {
         XCTAssertEqual(SleepTimer.countdown(3725), "1:02:05")
         XCTAssertEqual(SleepTimer.countdown(59.2), "1:00")
     }
-
-    func testWakeFadeRampsUp() {
-        let w = WakeFade(at: t0, duration: 600)
-        XCTAssertEqual(w.gain(at: t0.addingTimeInterval(-1)), 0)
-        XCTAssertEqual(w.gain(at: t0.addingTimeInterval(300)), Float(sin(Double.pi / 4)), accuracy: 0.001)
-        XCTAssertEqual(w.gain(at: t0.addingTimeInterval(600)), 1, accuracy: 0.0001)
-        XCTAssertTrue(w.isComplete(at: t0.addingTimeInterval(600)))
-    }
-
-    func testWakeNextOccurrenceIsWithinADay() {
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
-        let now = Date(timeIntervalSince1970: 0)   // 00:00 UTC
-        let next = WakeFade.nextOccurrence(hour: 7, minute: 30, after: now, calendar: cal)
-        XCTAssertEqual(next.timeIntervalSince(now), 7.5 * 3600)
-        let after = WakeFade.nextOccurrence(hour: 7, minute: 30, after: next, calendar: cal)
-        XCTAssertEqual(after.timeIntervalSince(next), 86_400)
-    }
 }
 
 final class MixLibraryTests: XCTestCase {
